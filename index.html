@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Dashboard · Higiene & Monitoreo Ambiental</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef2f7;--s1:#ffffff;--s2:#f4f7fb;--s3:#e6ecf4;--border:#c8d6e8;--border2:#b0c4d8;--cyan:#0077b6;--green:#1b9e4a;--red:#d62b44;--amber:#c07a00;--purple:#6d4cc7;--blue:#2a7fd4;--text:#1a2b3c;--dim:#6b82a0;--dim2:#4a6481;--font:'IBM Plex Sans',sans-serif;--display:'Rajdhani',sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;min-height:100vh}
+.topbar{background:linear-gradient(90deg,#0077b6,#005f96);border-bottom:1px solid var(--border);padding:0 22px;height:54px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:300}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-icon{width:34px;height:34px;border-radius:8px;background:#00e5ff1a;border:1px solid #00e5ff40;display:flex;align-items:center;justify-content:center;font-size:17px}
+.brand-name{font-family:var(--display);font-size:19px;font-weight:700;color:var(--cyan);letter-spacing:2px;text-transform:uppercase}
+.brand-sub{font-size:9px;color:var(--dim);letter-spacing:1.2px;margin-top:1px}
+.topbar-right{display:flex;align-items:center;gap:14px}
+.upd-box{text-align:right}
+.upd-lbl{font-size:9px;color:rgba(255,255,255,0.65);text-transform:uppercase;letter-spacing:1px}
+.upd-val{font-size:11px;color:#fff;font-weight:600;font-family:var(--display);letter-spacing:.5px}
+.pdf-btn{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.45);color:#fff;padding:7px 15px;border-radius:7px;cursor:pointer;font-family:var(--display);font-size:12px;font-weight:700;letter-spacing:.8px;display:flex;align-items:center;gap:7px;transition:all .2s;white-space:nowrap}
+.pdf-btn:hover{background:rgba(255,255,255,0.28);box-shadow:0 0 14px rgba(0,0,0,0.2)}
+.pdf-btn:disabled{opacity:.5;cursor:not-allowed}
+/* PDF overlay */
+.pdf-overlay{position:fixed;inset:0;background:rgba(0,20,45,0.75);z-index:2000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.pdf-overlay.show{display:flex}
+.pdf-modal{background:#fff;border-radius:14px;padding:32px 36px;min-width:340px;max-width:480px;box-shadow:0 20px 60px #00000040}
+.pdf-modal-title{font-family:var(--display);font-size:20px;font-weight:700;color:#1a2b3c;margin-bottom:6px;display:flex;align-items:center;gap:10px}
+.pdf-modal-sub{font-size:12px;color:#6b82a0;margin-bottom:22px}
+.pdf-option-group{display:flex;flex-direction:column;gap:10px;margin-bottom:22px}
+.pdf-option{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:1.5px solid #c8d6e8;border-radius:9px;cursor:pointer;transition:all .2s}
+.pdf-option:hover{border-color:#0077b6;background:#f0f8ff}
+.pdf-option.selected{border-color:#0077b6;background:#e8f4fd}
+.pdf-option input[type=radio]{margin-top:2px;accent-color:#0077b6;flex-shrink:0}
+.pdf-option-label{font-family:var(--display);font-size:13px;font-weight:700;color:#1a2b3c;line-height:1}
+.pdf-option-desc{font-size:10px;color:#6b82a0;margin-top:3px}
+.pdf-actions{display:flex;gap:10px;justify-content:flex-end}
+.pdf-cancel{background:none;border:1.5px solid #c8d6e8;color:#6b82a0;padding:9px 20px;border-radius:7px;cursor:pointer;font-family:var(--display);font-size:13px;font-weight:600;transition:all .2s}
+.pdf-cancel:hover{border-color:#6b82a0;color:#1a2b3c}
+.pdf-go{background:linear-gradient(135deg,#0077b6,#005f96);border:none;color:#fff;padding:9px 22px;border-radius:7px;cursor:pointer;font-family:var(--display);font-size:13px;font-weight:700;letter-spacing:.5px;transition:all .2s;display:flex;align-items:center;gap:8px}
+.pdf-go:hover{background:linear-gradient(135deg,#0089cc,#006faa);box-shadow:0 4px 16px #0077b640}
+.pdf-go:disabled{opacity:.5;cursor:not-allowed}
+.pdf-progress{display:none;flex-direction:column;gap:8px;margin-bottom:18px}
+.pdf-progress.show{display:flex}
+.pdf-prog-bar-bg{height:6px;background:#e6ecf4;border-radius:3px;overflow:hidden}
+.pdf-prog-bar{height:100%;background:linear-gradient(90deg,#0077b6,#00b4d8);border-radius:3px;width:0%;transition:width .4s ease}
+.pdf-prog-text{font-size:11px;color:#6b82a0;text-align:center}
+.multi-up{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.45);color:#fff;padding:7px 15px;border-radius:7px;cursor:pointer;font-family:var(--display);font-size:12px;font-weight:700;letter-spacing:.8px;display:flex;align-items:center;gap:7px;transition:all .2s;white-space:nowrap}
+.multi-up:hover{background:rgba(255,255,255,0.28);box-shadow:0 0 14px rgba(0,0,0,0.2)}
+.uprog{position:fixed;bottom:58px;right:20px;z-index:998;background:#1a2b3c;border:1px solid #2a4a6a;border-radius:10px;padding:14px 18px;min-width:260px;display:none;flex-direction:column;gap:6px;box-shadow:0 8px 30px #00000040}
+.uprog.show{display:flex}
+.uprog-title{font-family:var(--display);font-size:13px;font-weight:700;color:#cdd9e8;margin-bottom:4px}
+.uprog-item{display:flex;align-items:center;gap:8px;font-size:11px;color:#8aafc8}
+.uprog-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.uprog-dot.pend{background:var(--dim);animation:pulse 1s infinite}
+.uprog-dot.ok{background:var(--green)}
+.uprog-dot.skip{background:var(--amber)}
+.uprog-dot.err{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+.multi-up{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.45);color:#fff;padding:7px 15px;border-radius:7px;cursor:pointer;font-family:var(--display);font-size:12px;font-weight:700;letter-spacing:.8px;display:flex;align-items:center;gap:7px;transition:all .2s;white-space:nowrap}
+.multi-up:hover{background:rgba(255,255,255,0.28);box-shadow:0 0 14px rgba(0,0,0,0.2)}
+.multi-up svg{flex-shrink:0}
+/* Progress overlay */
+.uprog{position:fixed;bottom:58px;right:20px;z-index:998;background:var(--s2);border:1px solid var(--border2);border-radius:10px;padding:14px 18px;min-width:250px;display:none;flex-direction:column;gap:8px}
+.uprog.show{display:flex}
+.uprog-title{font-family:var(--display);font-size:12px;font-weight:700;color:var(--text);letter-spacing:.5px;margin-bottom:2px}
+.uprog-item{display:flex;align-items:center;gap:8px;font-size:11px}
+.uprog-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.uprog-dot.pend{background:var(--dim)}
+.uprog-dot.ok{background:var(--green)}
+.uprog-dot.err{background:var(--red)}
+.uprog-dot.skip{background:var(--amber)}
+.tabs-nav{background:#f0f5fb;border-bottom:2px solid var(--border);padding:0 22px;display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+.tabs-nav::-webkit-scrollbar{display:none}
+.tnav{padding:12px 18px;font-family:var(--display);font-size:12px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:#6b82a0;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s;white-space:nowrap;display:flex;align-items:center;gap:7px}
+.tnav:hover{color:var(--text)}
+.tnav.active{color:#0077b6;border-bottom-color:#0077b6;background:#e8f4fd;border-radius:6px 6px 0 0}
+.tdot{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.7;flex-shrink:0}
+.tbdg{font-size:9px;padding:1px 6px;border-radius:8px;background:var(--red);color:#fff;font-family:var(--font);font-weight:700;display:none}
+.tbdg.on{display:inline-block}
+.main{padding:18px 22px}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+/* Filters */
+.filters{background:#fff;border:1px solid var(--border);border-radius:10px;padding:11px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:16px;box-shadow:0 1px 4px #0000000c}
+.fl{display:flex;align-items:center;gap:6px}
+.fl-lbl{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;font-weight:600;white-space:nowrap}
+select{background:#fff;border:1px solid var(--border);color:var(--text);padding:5px 9px;border-radius:6px;font-size:11px;font-family:var(--font);cursor:pointer;outline:none;min-width:130px;transition:border .15s;box-shadow:inset 0 1px 3px #0000000a}
+select:focus{border-color:var(--cyan)}
+.btn-sm{background:none;border:1px solid var(--border);color:var(--dim);padding:5px 11px;border-radius:6px;cursor:pointer;font-size:10px;font-family:var(--font);transition:all .2s}
+.btn-sm:hover{border-color:var(--cyan);color:var(--cyan)}
+.up-lbl{background:linear-gradient(135deg,#00e5ff18,#00e5ff08);border:1px solid #00e5ff44;color:var(--cyan);padding:5px 11px;border-radius:6px;cursor:pointer;font-family:var(--display);font-size:11px;font-weight:600;letter-spacing:.7px;display:flex;align-items:center;gap:5px;transition:all .2s}
+.up-lbl:hover{background:linear-gradient(135deg,#00e5ff30,#00e5ff15)}
+input[type=file]{display:none}
+/* KPIs */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:14px 15px;position:relative;overflow:hidden;transition:transform .15s,box-shadow .15s;box-shadow:0 2px 6px #0000000d}
+.kpi:hover{transform:translateY(-2px);box-shadow:0 6px 22px #0006}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--kc,var(--cyan))}
+.kpi-lbl{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1.1px;font-weight:600;margin-bottom:6px}
+.kpi-val{font-family:var(--display);font-size:30px;font-weight:700;color:var(--kc,var(--cyan));line-height:1}
+.kpi-sub{font-size:10px;color:var(--dim2);margin-top:4px}
+/* Compliance card */
+.comp-card{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:15px;display:flex;align-items:center;gap:16px;position:relative;overflow:hidden;box-shadow:0 2px 8px #0000000f}
+.comp-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--green)}
+.rw{position:relative;width:78px;height:78px;flex-shrink:0}
+.rw canvas{width:78px!important;height:78px!important}
+.rc{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
+.rc-pct{font-family:var(--display);font-size:15px;font-weight:700;color:var(--green);line-height:1}
+.rc-lbl{font-size:8px;color:var(--dim)}
+.ci{flex:1}
+.ci-title{font-family:var(--display);font-size:14px;font-weight:700;margin-bottom:7px}
+.ci-stats{display:flex;gap:16px}
+.csv{font-family:var(--display);font-size:19px;font-weight:700}
+.csl{font-size:9px;color:var(--dim);text-transform:uppercase}
+/* Critical */
+.crit{border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:13px;margin-bottom:16px;transition:all .3s}
+.crit-ok{border:1px solid #00e67644;background:linear-gradient(135deg,#00e67610,#00e67605)}
+.crit-al{border:1px solid #ff3d5755;background:linear-gradient(135deg,#ff3d5712,#ff3d5706)}
+.crit-ic{width:40px;height:40px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px}
+.crit-ok .crit-ic{background:#00e67620}
+.crit-al .crit-ic{background:#ff3d5720}
+.crit-lbl{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px}
+.crit-nm{font-family:var(--display);font-size:17px;font-weight:700}
+.crit-ok .crit-nm{color:var(--green)}
+.crit-al .crit-nm{color:var(--red)}
+.crit-det{font-size:10px;color:var(--dim2);margin-top:2px}
+/* Charts */
+.row1{display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:14px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.cc{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:16px;box-shadow:0 2px 8px #0000000f}
+.cc-hd{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
+.cc-title{font-family:var(--display);font-size:14px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:7px}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.cc-sub{font-size:10px;color:var(--dim);margin-top:2px}
+.tag{font-size:9px;padding:2px 7px;border-radius:4px;font-weight:600;letter-spacing:.5px;white-space:nowrap}
+.tag-c{background:#00e5ff18;color:var(--cyan)}
+.tag-r{background:#ff3d5718;color:var(--red)}
+.tag-a{background:#ffb30018;color:var(--amber)}
+.tag-p{background:#c77dff18;color:var(--purple)}
+.tag-g{background:#00e67618;color:var(--green)}
+.cw{position:relative}
+/* Tables */
+.tbl-card{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:16px;box-shadow:0 2px 8px #0000000f}
+.tbl-title{font-family:var(--display);font-size:14px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:7px}
+table{width:100%;border-collapse:collapse}
+thead tr{border-bottom:1px solid var(--border2)}
+th{text-align:left;padding:7px 10px;font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);font-weight:600}
+tbody tr{border-bottom:1px solid #111e30;transition:background .12s}
+tbody tr:hover{background:#f0f6ff}
+tbody tr:last-child{border-bottom:none}
+td{padding:8px 10px;font-size:12px;vertical-align:middle}
+.rk{width:22px;height:22px;border-radius:5px;background:var(--s3);display:inline-flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;font-size:12px;color:var(--dim2)}
+.bdg{display:inline-flex;align-items:center;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600}
+.bdg-r{background:#ff3d5720;color:var(--red);border:1px solid #ff3d5740}
+.bdg-a{background:#ffb30020;color:var(--amber);border:1px solid #ffb30040}
+.bdg-g{background:#00e67620;color:var(--green);border:1px solid #00e67640}
+.barm{height:3px;background:var(--red);border-radius:2px;margin-top:4px}
+.ieh-bg{height:4px;background:var(--s3);border-radius:2px;margin-top:4px;overflow:hidden}
+.ieh-fl{height:100%;border-radius:2px;transition:width .6s}
+.bot{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+/* Resumen */
+.res-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
+.res-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:20px;position:relative;overflow:hidden;transition:transform .15s}
+.res-card:hover{transform:translateY(-2px)}
+.res-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--rc,var(--cyan))}
+.res-nm{font-family:var(--display);font-size:13px;font-weight:700;color:var(--dim2);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px}
+.res-pct{font-family:var(--display);font-size:40px;font-weight:700;color:var(--rc,var(--cyan));line-height:1;margin-bottom:4px}
+.res-pct.bad{color:var(--red)}.res-pct.warn{color:var(--amber)}
+.res-row{display:flex;gap:16px;margin-top:10px}
+.rs-val{font-family:var(--display);font-size:20px;font-weight:700}
+.rs-lbl{font-size:9px;color:var(--dim);text-transform:uppercase}
+.res-rw{position:absolute;top:16px;right:16px;width:56px;height:56px}
+.res-rw canvas{width:56px!important;height:56px!important}
+.res-rc{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:var(--display);font-size:10px;font-weight:700;color:var(--dim2)}
+/* Toast */
+.toast{position:fixed;bottom:20px;right:20px;z-index:999;background:#1a2b3c;border:1px solid #2a4a6a;border-radius:8px;padding:10px 16px;font-size:12px;color:#cdd9e8;display:flex;align-items:center;gap:10px;transform:translateY(80px);opacity:0;transition:all .3s;pointer-events:none}
+.toast.show{transform:translateY(0);opacity:1}
+.tdot2{width:7px;height:7px;border-radius:50%;background:var(--green)}
+.tdot2.r{background:var(--red)}
+@media(max-width:860px){.row2,.bot,.res-grid{grid-template-columns:1fr}.kpi-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:8px;padding:4px 10px;min-width:72px">
+      <span style="font-family:var(--display);font-size:17px;font-weight:700;color:#fff;letter-spacing:2px;line-height:1.1">SGCIA</span>
+      <span style="font-size:8.5px;color:rgba(255,255,255,0.75);letter-spacing:1px;font-weight:500">R-SIG-MA 02</span>
+    </div>
+    <div style="width:1px;height:32px;background:rgba(255,255,255,0.25);margin:0 4px"></div>
+    <div>
+      <div style="font-family:var(--display);font-size:17px;font-weight:700;color:#fff;letter-spacing:1.5px;text-transform:uppercase;line-height:1.15">Monitoreo Ambiental</div>
+      <div style="font-size:9px;color:rgba(255,255,255,0.75);letter-spacing:1.2px;margin-top:1px">PLANTA ALÉRGENOS · 2025–2026</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <button class="pdf-btn" id="pdfBtn" onclick="openPdfModal()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+      Exportar PDF
+    </button>
+    <label class="multi-up" title="Seleccioná hasta 4 CSV a la vez · se detectan automáticamente">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Cargar todos los CSV
+      <input type="file" accept=".csv" multiple id="multiUpInput" onchange="handleMultiUp(event)">
+    </label>
+    <div class="upd-box">
+      <div class="upd-lbl">Última actualización</div>
+      <div class="upd-val" id="lastUpdate">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- Progress overlay -->
+<div class="uprog" id="uprog">
+  <div class="uprog-title">📂 Procesando archivos…</div>
+  <div id="uprogItems"></div>
+</div>
+
+<!-- PDF Modal -->
+<div class="pdf-overlay" id="pdfOverlay">
+  <div class="pdf-modal">
+    <div class="pdf-modal-title">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0077b6" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Exportar a PDF
+    </div>
+    <div class="pdf-modal-sub">Seleccioná qué secciones querés incluir en el reporte</div>
+    <div class="pdf-option-group" id="pdfOptions">
+      <label class="pdf-option selected">
+        <input type="radio" name="pdfScope" value="current" checked onchange="selectPdfOpt(this)">
+        <div>
+          <div class="pdf-option-label">📄 Vista actual</div>
+          <div class="pdf-option-desc">Exporta solo la pestaña que estás viendo ahora</div>
+        </div>
+      </label>
+      <label class="pdf-option">
+        <input type="radio" name="pdfScope" value="all" onchange="selectPdfOpt(this)">
+        <div>
+          <div class="pdf-option-label">📋 Reporte completo</div>
+          <div class="pdf-option-desc">Exporta todas las pestañas: Resumen + las 3 hojas de monitoreo</div>
+        </div>
+      </label>
+    </div>
+    <div class="pdf-progress" id="pdfProgress">
+      <div class="pdf-prog-bar-bg"><div class="pdf-prog-bar" id="pdfProgBar"></div></div>
+      <div class="pdf-prog-text" id="pdfProgText">Preparando…</div>
+    </div>
+    <div class="pdf-actions">
+      <button class="pdf-cancel" onclick="closePdfModal()">Cancelar</button>
+      <button class="pdf-go" id="pdfGoBtn" onclick="runExportPdf()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Descargar PDF
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="tabs-nav">
+  <button class="tnav active" onclick="switchTab(0)"><span class="tdot"></span>Resumen General</button>
+  <button class="tnav" onclick="switchTab(1)"><span class="tdot" style="background:var(--cyan)"></span>🧫 Placa Ambiental<span class="tbdg" id="b1">3</span></button>
+  <button class="tnav" onclick="switchTab(2)"><span class="tdot" style="background:var(--green)"></span>🤲 Monitoreo de Manos<span class="tbdg" id="b2">12</span></button>
+  <button class="tnav" onclick="switchTab(3)"><span class="tdot" style="background:var(--amber)"></span>💨 Monitoreo de Gases<span class="tbdg" id="b3">41</span></button>
+</div>
+
+<div class="main">
+  <div id="tab0" class="tab-panel active"></div>
+  <div id="tab1" class="tab-panel"></div>
+  <div id="tab2" class="tab-panel"></div>
+  <div id="tab3" class="tab-panel"></div>
+</div>
+
+<div class="toast" id="toast"><div class="tdot2" id="tdot2"></div><span id="tmsg">OK</span></div>
+
+<script>
+// ═══ DATA ══════════════════════════════════════════════
+const EMBEDDED = {"placa": [{"f": "10/9/2025", "m": "septiembre", "p": "Sector preparación de insumos", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/9/2025", "m": "septiembre", "p": "Sector producción granolas (frente las pailas)", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/9/2025", "m": "septiembre", "p": "Enfriador granolas", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/9/2025", "m": "septiembre", "p": "Sector envasado granel", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/9/2025", "m": "septiembre", "p": "Sector envasado retail", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/9/2025", "m": "septiembre", "p": "Sector producción grageados", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/9/2025", "m": "septiembre", "p": "Sector preparación de insumos", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/9/2025", "m": "septiembre", "p": "Sector producción granolas (frente las pailas)", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/9/2025", "m": "septiembre", "p": "Enfriador granolas", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/9/2025", "m": "septiembre", "p": "Sector envasado granel", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/9/2025", "m": "septiembre", "p": "Sector envasado retail", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/9/2025", "m": "septiembre", "p": "Sector producción grageados", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "25/09/2025", "m": "septiembre", "p": "Sector preparación de insumos", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "25/09/2025", "m": "septiembre", "p": "Sector producción granolas (frente las pailas)", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "25/09/2025", "m": "septiembre", "p": "Enfriador granolas", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "25/09/2025", "m": "septiembre", "p": "Sector envasado granel", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "25/09/2025", "m": "septiembre", "p": "Sector envasado retail", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "25/09/2025", "m": "septiembre", "p": "Sector producción grageados", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "25/09/2025", "m": "septiembre", "p": "Sector preparación de insumos", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "25/09/2025", "m": "septiembre", "p": "Sector producción granolas (frente las pailas)", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "25/09/2025", "m": "septiembre", "p": "Enfriador granolas", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "25/09/2025", "m": "septiembre", "p": "Sector envasado granel", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "25/09/2025", "m": "septiembre", "p": "Sector envasado retail", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "25/09/2025", "m": "septiembre", "p": "Sector producción grageados", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/10/2025", "m": "octubre", "p": "Sector preparación de insumos", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/10/2025", "m": "octubre", "p": "Sector producción granolas (frente las pailas)", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/10/2025", "m": "octubre", "p": "Enfriador granolas", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/10/2025", "m": "octubre", "p": "Sector envasado granel", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/10/2025", "m": "octubre", "p": "Sector envasado retail", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/10/2025", "m": "octubre", "p": "Sector producción grageados", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/10/2025", "m": "octubre", "p": "Sector preparación de insumos", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/10/2025", "m": "octubre", "p": "Sector producción granolas (frente las pailas)", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/10/2025", "m": "octubre", "p": "Enfriador granolas", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/10/2025", "m": "octubre", "p": "Sector envasado granel", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/10/2025", "m": "octubre", "p": "Sector envasado retail", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/10/2025", "m": "octubre", "p": "Sector producción grageados", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "24/10/2025", "m": "octubre", "p": "Sector preparación de insumos", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "24/10/2025", "m": "octubre", "p": "Sector producción granolas (frente las pailas)", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "24/10/2025", "m": "octubre", "p": "Enfriador granolas", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "24/10/2025", "m": "octubre", "p": "Sector envasado granel", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "24/10/2025", "m": "octubre", "p": "Sector envasado retail", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "24/10/2025", "m": "octubre", "p": "Sector producción grageados", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "24/10/2025", "m": "octubre", "p": "Sector preparación de insumos", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "24/10/2025", "m": "octubre", "p": "Sector producción granolas (frente las pailas)", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "24/10/2025", "m": "octubre", "p": "Enfriador granolas", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "24/10/2025", "m": "octubre", "p": "Sector envasado granel", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "24/10/2025", "m": "octubre", "p": "Sector envasado retail", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "24/10/2025", "m": "octubre", "p": "Sector producción grageados", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "11/11/2025", "m": "noviembre", "p": "Sector preparación de insumos", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "11/11/2025", "m": "noviembre", "p": "Sector producción granolas (frente las pailas)", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "11/11/2025", "m": "noviembre", "p": "Enfriador granolas", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "11/11/2025", "m": "noviembre", "p": "Sector envasado granel", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "11/11/2025", "m": "noviembre", "p": "Sector envasado retail", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "11/11/2025", "m": "noviembre", "p": "Sector producción grageados", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "11/11/2025", "m": "noviembre", "p": "Sector preparación de insumos", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "11/11/2025", "m": "noviembre", "p": "Sector producción granolas (frente las pailas)", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "11/11/2025", "m": "noviembre", "p": "Enfriador granolas", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "11/11/2025", "m": "noviembre", "p": "Sector envasado granel", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "11/11/2025", "m": "noviembre", "p": "Sector envasado retail", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "11/11/2025", "m": "noviembre", "p": "Sector producción grageados", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/11/2025", "m": "noviembre", "p": "Sector preparación de insumos", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/11/2025", "m": "noviembre", "p": "Sector producción granolas (frente las pailas)", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/11/2025", "m": "noviembre", "p": "Enfriador granolas", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/11/2025", "m": "noviembre", "p": "Sector envasado granel", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/11/2025", "m": "noviembre", "p": "Sector envasado retail", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/11/2025", "m": "noviembre", "p": "Sector producción grageados", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/11/2025", "m": "noviembre", "p": "Sector preparación de insumos", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/11/2025", "m": "noviembre", "p": "Sector producción granolas (frente las pailas)", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/11/2025", "m": "noviembre", "p": "Enfriador granolas", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/11/2025", "m": "noviembre", "p": "Sector envasado granel", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/11/2025", "m": "noviembre", "p": "Sector envasado retail", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/11/2025", "m": "noviembre", "p": "Sector producción grageados", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/12/2025", "m": "diciembre", "p": "Sector preparación de insumos", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/12/2025", "m": "diciembre", "p": "Sector producción granolas (frente las pailas)", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/12/2025", "m": "diciembre", "p": "Enfriador granolas", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/12/2025", "m": "diciembre", "p": "Sector envasado granel", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/12/2025", "m": "diciembre", "p": "Sector envasado retail", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/12/2025", "m": "diciembre", "p": "Sector producción grageados", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/12/2025", "m": "diciembre", "p": "Sector preparación de insumos", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/12/2025", "m": "diciembre", "p": "Sector producción granolas (frente las pailas)", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/12/2025", "m": "diciembre", "p": "Enfriador granolas", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/12/2025", "m": "diciembre", "p": "Sector envasado granel", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/12/2025", "m": "diciembre", "p": "Sector envasado retail", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/12/2025", "m": "diciembre", "p": "Sector producción grageados", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Sector preparación de insumos", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Sector producción granolas (frente las pailas)", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Enfriador granolas", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Sector envasado granel", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Sector envasado retail", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Sector producción grageados", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Sector preparación de insumos", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Sector producción granolas (frente las pailas)", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Enfriador granolas", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Sector envasado granel", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Sector envasado retail", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Sector producción grageados", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/1/2026", "m": "enero", "p": "Sector preparación de insumos", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "9/1/2026", "m": "enero", "p": "Sector producción granolas (frente las pailas)", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "9/1/2026", "m": "enero", "p": "Enfriador granolas", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "9/1/2026", "m": "enero", "p": "Sector envasado granel", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "9/1/2026", "m": "enero", "p": "Sector envasado retail", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "9/1/2026", "m": "enero", "p": "Sector producción grageados", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "9/1/2026", "m": "enero", "p": "Sector preparación de insumos", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "9/1/2026", "m": "enero", "p": "Sector producción granolas (frente las pailas)", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "9/1/2026", "m": "enero", "p": "Enfriador granolas", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "9/1/2026", "m": "enero", "p": "Sector envasado granel", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "9/1/2026", "m": "enero", "p": "Sector envasado retail", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "9/1/2026", "m": "enero", "p": "Sector producción grageados", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "26/01/2026", "m": "enero", "p": "Sector preparación de insumos", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "26/01/2026", "m": "enero", "p": "Sector producción granolas (frente las pailas)", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "26/01/2026", "m": "enero", "p": "Enfriador granolas", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "26/01/2026", "m": "enero", "p": "Sector envasado granel", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "26/01/2026", "m": "enero", "p": "Sector envasado retail", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "26/01/2026", "m": "enero", "p": "Sector producción grageados", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "26/01/2026", "m": "enero", "p": "Sector preparación de insumos", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "26/01/2026", "m": "enero", "p": "Sector producción granolas (frente las pailas)", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "26/01/2026", "m": "enero", "p": "Enfriador granolas", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "26/01/2026", "m": "enero", "p": "Sector envasado granel", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "26/01/2026", "m": "enero", "p": "Sector envasado retail", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "26/01/2026", "m": "enero", "p": "Sector producción grageados", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Sector preparación de insumos", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Sector producción granolas (frente las pailas)", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Enfriador granolas", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Sector envasado granel", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Sector envasado retail", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Sector producción grageados", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Sector preparación de insumos", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Sector producción granolas (frente las pailas)", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Enfriador granolas", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Sector envasado granel", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Sector envasado retail", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Sector producción grageados", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "24/02/2026", "m": "febrero", "p": "Sector preparación de insumos", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "24/02/2026", "m": "febrero", "p": "Sector producción granolas (frente las pailas)", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "24/02/2026", "m": "febrero", "p": "Enfriador granolas", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "24/02/2026", "m": "febrero", "p": "Sector envasado granel", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "24/02/2026", "m": "febrero", "p": "Sector envasado retail", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "24/02/2026", "m": "febrero", "p": "Sector producción grageados", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "24/02/2026", "m": "febrero", "p": "Sector preparación de insumos", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "24/02/2026", "m": "febrero", "p": "Sector producción granolas (frente las pailas)", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "24/02/2026", "m": "febrero", "p": "Enfriador granolas", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "24/02/2026", "m": "febrero", "p": "Sector envasado granel", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "24/02/2026", "m": "febrero", "p": "Sector envasado retail", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "24/02/2026", "m": "febrero", "p": "Sector producción grageados", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "5/3/2026", "m": "marzo", "p": "Sector preparación de insumos", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "5/3/2026", "m": "marzo", "p": "Sector producción granolas (frente las pailas)", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "5/3/2026", "m": "marzo", "p": "Enfriador granolas", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "5/3/2026", "m": "marzo", "p": "Sector envasado granel", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "5/3/2026", "m": "marzo", "p": "Sector envasado retail", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "5/3/2026", "m": "marzo", "p": "Sector producción grageados", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "5/3/2026", "m": "marzo", "p": "Sector preparación de insumos", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "5/3/2026", "m": "marzo", "p": "Sector producción granolas (frente las pailas)", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "5/3/2026", "m": "marzo", "p": "Enfriador granolas", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "5/3/2026", "m": "marzo", "p": "Sector envasado granel", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "5/3/2026", "m": "marzo", "p": "Sector envasado retail", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "5/3/2026", "m": "marzo", "p": "Sector producción grageados", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "19/03/2026", "m": "marzo", "p": "Sector preparación de insumos", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "19/03/2026", "m": "marzo", "p": "Sector producción granolas (frente las pailas)", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "19/03/2026", "m": "marzo", "p": "Enfriador granolas", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "19/03/2026", "m": "marzo", "p": "Sector envasado granel", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "19/03/2026", "m": "marzo", "p": "Sector envasado retail", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "19/03/2026", "m": "marzo", "p": "Sector producción grageados", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "19/03/2026", "m": "marzo", "p": "Sector preparación de insumos", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "19/03/2026", "m": "marzo", "p": "Sector producción granolas (frente las pailas)", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "19/03/2026", "m": "marzo", "p": "Enfriador granolas", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "19/03/2026", "m": "marzo", "p": "Sector envasado granel", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "19/03/2026", "m": "marzo", "p": "Sector envasado retail", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "19/03/2026", "m": "marzo", "p": "Sector producción grageados", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}], "manos": [{"f": "10/9/2025", "m": "septiembre", "p": "Personal de preparación de insumos", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/9/2025", "m": "septiembre", "p": "Personal de paila/rompedora", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/9/2025", "m": "septiembre", "p": "Personal de grageados", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/9/2025", "m": "septiembre", "p": "Personal de envasado", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/9/2025", "m": "septiembre", "p": "Personal de preparación de insumos", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/9/2025", "m": "septiembre", "p": "Personal de paila/rompedora", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/9/2025", "m": "septiembre", "p": "Personal de grageados", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/9/2025", "m": "septiembre", "p": "Personal de envasado", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "25/09/2025", "m": "septiembre", "p": "Personal de preparación de insumos", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "25/09/2025", "m": "septiembre", "p": "Personal de paila/rompedora", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "25/09/2025", "m": "septiembre", "p": "Personal de grageados", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "25/09/2025", "m": "septiembre", "p": "Personal de envasado", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "25/09/2025", "m": "septiembre", "p": "Personal de preparación de insumos", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "25/09/2025", "m": "septiembre", "p": "Personal de paila/rompedora", "a": "Enterobacterias (ufc/mano)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "25/09/2025", "m": "septiembre", "p": "Personal de grageados", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "25/09/2025", "m": "septiembre", "p": "Personal de envasado", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/10/2025", "m": "octubre", "p": "Personal de preparación de insumos", "a": "Staphylococcus aureus (ufc/mano)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "9/10/2025", "m": "octubre", "p": "Personal de paila/rompedora", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/10/2025", "m": "octubre", "p": "Personal de grageados", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/10/2025", "m": "octubre", "p": "Personal de envasado", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/10/2025", "m": "octubre", "p": "Personal de preparación de insumos", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/10/2025", "m": "octubre", "p": "Personal de paila/rompedora", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/10/2025", "m": "octubre", "p": "Personal de grageados", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/10/2025", "m": "octubre", "p": "Personal de envasado", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "24/10/2025", "m": "octubre", "p": "Personal de preparación de insumos", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "24/10/2025", "m": "octubre", "p": "Personal de paila/rompedora", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "24/10/2025", "m": "octubre", "p": "Personal de grageados", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "24/10/2025", "m": "octubre", "p": "Personal de envasado", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "24/10/2025", "m": "octubre", "p": "Personal de preparación de insumos", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "24/10/2025", "m": "octubre", "p": "Personal de paila/rompedora", "a": "Enterobacterias (ufc/mano)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "24/10/2025", "m": "octubre", "p": "Personal de grageados", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "24/10/2025", "m": "octubre", "p": "Personal de envasado", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "11/11/2025", "m": "noviembre", "p": "Personal de preparación de insumos", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "11/11/2025", "m": "noviembre", "p": "Personal de paila/rompedora", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "11/11/2025", "m": "noviembre", "p": "Personal de grageados", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "11/11/2025", "m": "noviembre", "p": "Personal de envasado", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "11/11/2025", "m": "noviembre", "p": "Personal de preparación de insumos", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "11/11/2025", "m": "noviembre", "p": "Personal de paila/rompedora", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "11/11/2025", "m": "noviembre", "p": "Personal de grageados", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "11/11/2025", "m": "noviembre", "p": "Personal de envasado", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/11/2025", "m": "noviembre", "p": "Personal de preparación de insumos", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/11/2025", "m": "noviembre", "p": "Personal de paila/rompedora", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/11/2025", "m": "noviembre", "p": "Personal de grageados", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/11/2025", "m": "noviembre", "p": "Personal de envasado", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/11/2025", "m": "noviembre", "p": "Personal de preparación de insumos", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/11/2025", "m": "noviembre", "p": "Personal de paila/rompedora", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/11/2025", "m": "noviembre", "p": "Personal de grageados", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/11/2025", "m": "noviembre", "p": "Personal de envasado", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/12/2025", "m": "diciembre", "p": "Personal de preparación de insumos", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/12/2025", "m": "diciembre", "p": "Personal de paila/rompedora", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/12/2025", "m": "diciembre", "p": "Personal de grageados", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/12/2025", "m": "diciembre", "p": "Personal de envasado", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/12/2025", "m": "diciembre", "p": "Personal de preparación de insumos", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/12/2025", "m": "diciembre", "p": "Personal de paila/rompedora", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/12/2025", "m": "diciembre", "p": "Personal de grageados", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/12/2025", "m": "diciembre", "p": "Personal de envasado", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Personal de preparación de insumos", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Personal de paila/rompedora", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Personal de grageados", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Personal de envasado", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Personal de preparación de insumos", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Personal de paila/rompedora", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Personal de grageados", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Personal de envasado", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/1/2026", "m": "enero", "p": "Personal de preparación de insumos", "a": "Staphylococcus aureus (ufc/mano)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "9/1/2026", "m": "enero", "p": "Personal de paila/rompedora", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "9/1/2026", "m": "enero", "p": "Personal de grageados", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "9/1/2026", "m": "enero", "p": "Personal de envasado", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "9/1/2026", "m": "enero", "p": "Personal de preparación de insumos", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "9/1/2026", "m": "enero", "p": "Personal de paila/rompedora", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "9/1/2026", "m": "enero", "p": "Personal de grageados", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "9/1/2026", "m": "enero", "p": "Personal de envasado", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "26/01/2026", "m": "enero", "p": "Personal de preparación de insumos", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "26/01/2026", "m": "enero", "p": "Personal de paila/rompedora", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "26/01/2026", "m": "enero", "p": "Personal de grageados", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "26/01/2026", "m": "enero", "p": "Personal de envasado", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "26/01/2026", "m": "enero", "p": "Personal de preparación de insumos", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "26/01/2026", "m": "enero", "p": "Personal de paila/rompedora", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "26/01/2026", "m": "enero", "p": "Personal de grageados", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "26/01/2026", "m": "enero", "p": "Personal de envasado", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Personal de preparación de insumos", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Personal de paila/rompedora", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Personal de grageados", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Personal de envasado", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Personal de preparación de insumos", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Personal de paila/rompedora", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Personal de grageados", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Personal de envasado", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "24/02/2026", "m": "febrero", "p": "Personal de preparación de insumos", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "24/02/2026", "m": "febrero", "p": "Personal de paila/rompedora", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "24/02/2026", "m": "febrero", "p": "Personal de grageados", "a": "Staphylococcus aureus (ufc/mano)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "24/02/2026", "m": "febrero", "p": "Personal de envasado", "a": "Staphylococcus aureus (ufc/mano)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "24/02/2026", "m": "febrero", "p": "Personal de preparación de insumos", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "24/02/2026", "m": "febrero", "p": "Personal de paila/rompedora", "a": "Enterobacterias (ufc/mano)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "24/02/2026", "m": "febrero", "p": "Personal de grageados", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "24/02/2026", "m": "febrero", "p": "Personal de envasado", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "5/3/2026", "m": "marzo", "p": "Personal de preparación de insumos", "a": "Staphylococcus aureus (ufc/mano)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "5/3/2026", "m": "marzo", "p": "Personal de paila/rompedora", "a": "Staphylococcus aureus (ufc/mano)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "5/3/2026", "m": "marzo", "p": "Personal de grageados", "a": "Staphylococcus aureus (ufc/mano)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "5/3/2026", "m": "marzo", "p": "Personal de envasado", "a": "Staphylococcus aureus (ufc/mano)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "5/3/2026", "m": "marzo", "p": "Personal de preparación de insumos", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "5/3/2026", "m": "marzo", "p": "Personal de paila/rompedora", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "5/3/2026", "m": "marzo", "p": "Personal de grageados", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "5/3/2026", "m": "marzo", "p": "Personal de envasado", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "19/03/2026", "m": "marzo", "p": "Personal de preparación de insumos", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "19/03/2026", "m": "marzo", "p": "Personal de paila/rompedora", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "19/03/2026", "m": "marzo", "p": "Personal de grageados", "a": "Staphylococcus aureus (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "19/03/2026", "m": "marzo", "p": "Personal de envasado", "a": "Staphylococcus aureus (ufc/mano)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "19/03/2026", "m": "marzo", "p": "Personal de preparación de insumos", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "19/03/2026", "m": "marzo", "p": "Personal de paila/rompedora", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "19/03/2026", "m": "marzo", "p": "Personal de grageados", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "19/03/2026", "m": "marzo", "p": "Personal de envasado", "a": "Enterobacterias (ufc/mano)", "c": "Dentro de límite", "y": 2026, "fl": 0}], "gases": [{"f": "10/9/2025", "m": "septiembre", "p": "Nitrógeno envasadoras", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/9/2025", "m": "septiembre", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/9/2025", "m": "septiembre", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/9/2025", "m": "septiembre", "p": "Nitrógeno envasadoras", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/9/2025", "m": "septiembre", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/9/2025", "m": "septiembre", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "25/09/2025", "m": "septiembre", "p": "Nitrógeno envasadoras", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "25/09/2025", "m": "septiembre", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "25/09/2025", "m": "septiembre", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "25/09/2025", "m": "septiembre", "p": "Nitrógeno envasadoras", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "25/09/2025", "m": "septiembre", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "25/09/2025", "m": "septiembre", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/10/2025", "m": "octubre", "p": "Nitrógeno envasadoras", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "9/10/2025", "m": "octubre", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/10/2025", "m": "octubre", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "9/10/2025", "m": "octubre", "p": "Nitrógeno envasadoras", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "9/10/2025", "m": "octubre", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "9/10/2025", "m": "octubre", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "24/10/2025", "m": "octubre", "p": "Nitrógeno envasadoras", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "24/10/2025", "m": "octubre", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "24/10/2025", "m": "octubre", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "24/10/2025", "m": "octubre", "p": "Nitrógeno envasadoras", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "24/10/2025", "m": "octubre", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "24/10/2025", "m": "octubre", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "11/11/2025", "m": "noviembre", "p": "Nitrógeno envasadoras", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "11/11/2025", "m": "noviembre", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "11/11/2025", "m": "noviembre", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "11/11/2025", "m": "noviembre", "p": "Nitrógeno envasadoras", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "11/11/2025", "m": "noviembre", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "11/11/2025", "m": "noviembre", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "26/11/2025", "m": "noviembre", "p": "Nitrógeno envasadoras", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/11/2025", "m": "noviembre", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "26/11/2025", "m": "noviembre", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "26/11/2025", "m": "noviembre", "p": "Nitrógeno envasadoras", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "26/11/2025", "m": "noviembre", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "26/11/2025", "m": "noviembre", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "10/12/2025", "m": "diciembre", "p": "Nitrógeno envasadoras", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/12/2025", "m": "diciembre", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/12/2025", "m": "diciembre", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "10/12/2025", "m": "diciembre", "p": "Nitrógeno envasadoras", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "10/12/2025", "m": "diciembre", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "10/12/2025", "m": "diciembre", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Nitrógeno envasadoras", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Nitrógeno envasadoras", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "26/12/2025", "m": "diciembre", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2025, "fl": 0}, {"f": "26/12/2025", "m": "diciembre", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2025, "fl": 1}, {"f": "9/1/2026", "m": "enero", "p": "Nitrógeno envasadoras", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "9/1/2026", "m": "enero", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "9/1/2026", "m": "enero", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "9/1/2026", "m": "enero", "p": "Nitrógeno envasadoras", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "9/1/2026", "m": "enero", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "9/1/2026", "m": "enero", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "26/01/2026", "m": "enero", "p": "Nitrógeno envasadoras", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "26/01/2026", "m": "enero", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "26/01/2026", "m": "enero", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "26/01/2026", "m": "enero", "p": "Nitrógeno envasadoras", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "26/01/2026", "m": "enero", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "26/01/2026", "m": "enero", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Nitrógeno envasadoras", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Nitrógeno envasadoras", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "10/2/2026", "m": "febrero", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Hongos y Levaduras (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "10/2/2026", "m": "febrero", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "24/02/2026", "m": "febrero", "p": "Nitrógeno envasadoras", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "24/02/2026", "m": "febrero", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "24/02/2026", "m": "febrero", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "24/02/2026", "m": "febrero", "p": "Nitrógeno envasadoras", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "24/02/2026", "m": "febrero", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "24/02/2026", "m": "febrero", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "5/3/2026", "m": "marzo", "p": "Nitrógeno envasadoras", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "5/3/2026", "m": "marzo", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "5/3/2026", "m": "marzo", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Dentro de límite", "y": 2026, "fl": 0}, {"f": "5/3/2026", "m": "marzo", "p": "Nitrógeno envasadoras", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "5/3/2026", "m": "marzo", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "5/3/2026", "m": "marzo", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "19/03/2026", "m": "marzo", "p": "Nitrógeno envasadoras", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "19/03/2026", "m": "marzo", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "19/03/2026", "m": "marzo", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Aerobios mesófilos totales (ufc/placa)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "19/03/2026", "m": "marzo", "p": "Nitrógeno envasadoras", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "19/03/2026", "m": "marzo", "p": "Aire comprimido para sopletear/limpieza producción", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2026, "fl": 1}, {"f": "19/03/2026", "m": "marzo", "p": "Aire comprimido para sopletear/limpieza envasado", "a": "Hongos y Levaduras (ufc/placa)", "c": "Fuera de límite", "y": 2026, "fl": 1}]};
+
+const MO=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const MS=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const KEYS=['placa','manos','gases'];
+const COLORS={placa:'#00e5ff',manos:'#00e676',gases:'#ffb300'};
+const NAMES={placa:'Placa Ambiental',manos:'Monitoreo de Manos',gases:'Monitoreo de Gases'};
+const TABN=['','placa','manos','gases'];
+
+let CU={}, RI={};
+
+// ═══ INIT ═════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded',()=>{
+  buildResumen(); [1,2,3].forEach(i=>buildMonitor(i));
+  KEYS.forEach(k=>{
+    const i=KEYS.indexOf(k)+1;
+    populateFilters(i,k); renderTab(i,k);
+  });
+  renderResumen();
+  updateClock(); setInterval(updateClock,30000);
+  ['b1','b2','b3'].forEach(id=>{document.getElementById(id).classList.add('on');});
+});
+function updateClock(){
+  const n=new Date();
+  document.getElementById('lastUpdate').textContent=
+    n.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+
+    n.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+}
+
+// ═══ TAB SWITCH ═══════════════════════════════════════
+let AT=0;
+function switchTab(i){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tnav').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab'+i).classList.add('active');
+  document.querySelectorAll('.tnav')[i].classList.add('active');
+  AT=i;
+}
+
+// ═══ BUILD RESUMEN ════════════════════════════════════
+function buildResumen(){
+  document.getElementById('tab0').innerHTML=`
+  <div class="res-grid">
+    <div class="res-card" style="--rc:#00e5ff">
+      <div class="res-nm">🧫 Placa Ambiental</div>
+      <div class="res-pct" id="rpct0">98.2%</div>
+      <div style="font-size:10px;color:var(--dim)">% Cumplimiento</div>
+      <div class="res-row">
+        <div><div class="rs-val" style="color:var(--green)" id="rd0">165</div><div class="rs-lbl">Dentro</div></div>
+        <div><div class="rs-val" style="color:var(--red)" id="rf0">3</div><div class="rs-lbl">Fuera</div></div>
+        <div><div class="rs-val" style="color:var(--cyan)" id="rt0">168</div><div class="rs-lbl">Total</div></div>
+      </div>
+      <div class="res-rw"><canvas id="rr0"></canvas><div class="res-rc" id="rrp0">98%</div></div>
+    </div>
+    <div class="res-card" style="--rc:#00e676">
+      <div class="res-nm">🤲 Monitoreo de Manos</div>
+      <div class="res-pct warn" id="rpct1">89.3%</div>
+      <div style="font-size:10px;color:var(--dim)">% Cumplimiento</div>
+      <div class="res-row">
+        <div><div class="rs-val" style="color:var(--green)" id="rd1">100</div><div class="rs-lbl">Dentro</div></div>
+        <div><div class="rs-val" style="color:var(--red)" id="rf1">12</div><div class="rs-lbl">Fuera</div></div>
+        <div><div class="rs-val" style="color:var(--green)" id="rt1">112</div><div class="rs-lbl">Total</div></div>
+      </div>
+      <div class="res-rw"><canvas id="rr1"></canvas><div class="res-rc" id="rrp1">89%</div></div>
+    </div>
+    <div class="res-card" style="--rc:#ffb300">
+      <div class="res-nm">💨 Monitoreo de Gases</div>
+      <div class="res-pct bad" id="rpct2">51.2%</div>
+      <div style="font-size:10px;color:var(--dim)">% Cumplimiento</div>
+      <div class="res-row">
+        <div><div class="rs-val" style="color:var(--green)" id="rd2">43</div><div class="rs-lbl">Dentro</div></div>
+        <div><div class="rs-val" style="color:var(--red)" id="rf2">41</div><div class="rs-lbl">Fuera</div></div>
+        <div><div class="rs-val" style="color:var(--amber)" id="rt2">84</div><div class="rs-lbl">Total</div></div>
+      </div>
+      <div class="res-rw"><canvas id="rr2"></canvas><div class="res-rc" id="rrp2">51%</div></div>
+    </div>
+  </div>
+  <div class="row1">
+    <div class="cc">
+      <div class="cc-hd">
+        <div><div class="cc-title"><span class="dot" style="background:var(--purple)"></span>Comparativo Fuera de Límite por Mes · Las 3 Categorías</div>
+        <div class="cc-sub">Evolución mensual Sep 2025 – Mar 2026</div></div>
+        <span class="tag tag-p">COMPARATIVO</span>
+      </div>
+      <div class="cw" style="height:220px"><canvas id="resComp"></canvas></div>
+    </div>
+  </div>
+  <div class="row2">
+    <div class="cc">
+      <div class="cc-hd">
+        <div><div class="cc-title"><span class="dot" style="background:var(--green)"></span>% Cumplimiento por Categoría</div>
+        <div class="cc-sub">Totales acumulados del período</div></div>
+        <span class="tag tag-g">CUMPLIMIENTO</span>
+      </div>
+      <div class="cw" style="height:180px"><canvas id="resCumpl"></canvas></div>
+    </div>
+    <div class="cc">
+      <div class="cc-hd">
+        <div><div class="cc-title"><span class="dot" style="background:var(--amber)"></span>IEH Global por Categoría</div>
+        <div class="cc-sub">Índice de Eficacia de Higiene · período completo</div></div>
+        <span class="tag tag-a">IEH</span>
+      </div>
+      <div id="iehGlobal" style="padding:10px 0"></div>
+    </div>
+  </div>`;
+}
+
+function renderResumen(){
+  const cats=[
+    {k:'placa',color:'#00e5ff',idx:0},
+    {k:'manos',color:'#00e676',idx:1},
+    {k:'gases',color:'#ffb300',idx:2}
+  ];
+  cats.forEach(({k,color,idx})=>{
+    const d=EMBEDDED[k];
+    const total=d.length, fuera=d.filter(r=>r.fl).length, dentro=total-fuera;
+    const pct=total>0?((dentro/total)*100).toFixed(1):0;
+    const ctx=document.getElementById('rr'+idx)?.getContext('2d');
+    if(ctx){
+      new Chart(ctx,{type:'doughnut',
+        data:{datasets:[{data:[dentro,fuera],backgroundColor:[color,'#ff3d57'],borderWidth:0}]},
+        options:{cutout:'70%',plugins:{legend:{display:false},tooltip:{enabled:false}},animation:{duration:800}}});
+    }
+    const el=document.getElementById('rrp'+idx);
+    if(el) el.textContent=Math.round(pct)+'%';
+    ['d','f','t'].forEach((s,si)=>{
+      const e=document.getElementById('r'+s+idx);
+      if(e) e.textContent=si===0?dentro:si===1?fuera:total;
+    });
+    const pe=document.getElementById('rpct'+idx);
+    if(pe) pe.textContent=pct+'%';
+  });
+
+  // Comparativo chart
+  const allMonths=[...new Set([...EMBEDDED.placa,...EMBEDDED.manos,...EMBEDDED.gases].map(r=>`${r.y}-${String(MO.indexOf(r.m)<0?99:MO.indexOf(r.m)).padStart(2,'0')}`))]
+    .filter(p=>!p.includes('-99')).sort();
+  const labels=allMonths.map(p=>{const[y,mi]=p.split('-');return(parseInt(mi)<12?MS[parseInt(mi)]:'?')+' '+y;});
+  const compCtx=document.getElementById('resComp')?.getContext('2d');
+  if(compCtx){
+    new Chart(compCtx,{type:'line',
+      data:{labels,datasets:[
+        {label:'Placa Ambiental',data:allMonths.map(p=>cntFuera(EMBEDDED.placa,p)),borderColor:'#00e5ff',backgroundColor:'#00e5ff22',fill:true,tension:.4,pointRadius:4,borderWidth:2},
+        {label:'Monitoreo Manos',data:allMonths.map(p=>cntFuera(EMBEDDED.manos,p)),borderColor:'#00e676',backgroundColor:'#00e67622',fill:true,tension:.4,pointRadius:4,borderWidth:2},
+        {label:'Monitoreo Gases',data:allMonths.map(p=>cntFuera(EMBEDDED.gases,p)),borderColor:'#ffb300',backgroundColor:'#ffb30022',fill:true,tension:.4,pointRadius:4,borderWidth:2}
+      ]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{labels:{color:'#cdd9e8',font:{size:10},boxWidth:10},position:'top'},
+          tooltip:{backgroundColor:'#112240',borderColor:'#1c3250',borderWidth:1,titleColor:'#cdd9e8',bodyColor:'#4e6a88'}},
+        scales:{x:{ticks:{color:'#4e6a88',font:{size:9}},grid:{color:'#1c325033'}},
+          y:{ticks:{color:'#4e6a88',font:{size:10},stepSize:1},grid:{color:'#1c3250'},beginAtZero:true}}}});
+  }
+
+  // Cumplimiento bar chart
+  const cumplCtx=document.getElementById('resCumpl')?.getContext('2d');
+  if(cumplCtx){
+    const vals=KEYS.map(k=>{const d=EMBEDDED[k];const tot=d.length,f=d.filter(r=>r.fl).length;return tot>0?(((tot-f)/tot)*100).toFixed(1):0;});
+    new Chart(cumplCtx,{type:'bar',
+      data:{labels:['Placa Ambiental','Monitoreo Manos','Monitoreo Gases'],
+        datasets:[{label:'% Cumplimiento',data:vals,backgroundColor:['#00e5ff88','#00e67688','#ffb30088'],borderColor:['#00e5ff','#00e676','#ffb300'],borderWidth:1,borderRadius:6}]},
+      options:{responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{backgroundColor:'#112240',borderColor:'#1c3250',borderWidth:1,titleColor:'#cdd9e8',bodyColor:'#4e6a88',callbacks:{label:v=>v.raw+'%'}}},
+        scales:{x:{ticks:{color:'#4e6a88',font:{size:10}},grid:{color:'#1c325033'}},
+          y:{min:0,max:100,ticks:{color:'#4e6a88',font:{size:10},callback:v=>v+'%'},grid:{color:'#1c3250'}}}}});
+  }
+
+  // IEH global bars
+  const el=document.getElementById('iehGlobal');
+  if(el){
+    const items=[
+      {label:'🧫 Placa Ambiental',color:'#00e5ff',key:'placa'},
+      {label:'🤲 Monitoreo Manos',color:'#00e676',key:'manos'},
+      {label:'💨 Monitoreo Gases',color:'#ffb300',key:'gases'}
+    ];
+    el.innerHTML=items.map(({label,color,key})=>{
+      const d=EMBEDDED[key],t=d.length,f=d.filter(r=>r.fl).length;
+      const ieh=t>0?(((t-f)/t)*100).toFixed(1):0;
+      const fc=parseFloat(ieh)>=98?'var(--green)':parseFloat(ieh)>=80?'var(--amber)':'var(--red)';
+      return `<div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+          <span style="font-size:11px;color:var(--dim2)">${label}</span>
+          <span style="font-family:var(--display);font-size:18px;font-weight:700;color:${fc}">${ieh}%</span>
+        </div>
+        <div style="height:6px;background:var(--s3);border-radius:3px;overflow:hidden">
+          <div style="height:100%;width:${ieh}%;background:${color};border-radius:3px;transition:width .8s"></div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+}
+
+function cntFuera(data,period){
+  const[y,mi]=period.split('-');
+  return data.filter(r=>String(r.y)===y&&MO.indexOf(r.m)===parseInt(mi)&&r.fl).length;
+}
+
+// ═══ BUILD MONITOR TABS ═══════════════════════════════
+function buildMonitor(i){
+  const k=TABN[i], col=COLORS[k];
+  document.getElementById('tab'+i).innerHTML=`
+  <div class="filters">
+    <div class="fl"><span class="fl-lbl">Año</span><select id="fY${i}" onchange="applyF(${i})"><option value="">Todos</option></select></div>
+    <div class="fl"><span class="fl-lbl">Mes</span><select id="fM${i}" onchange="applyF(${i})"><option value="">Todos</option></select></div>
+    <div class="fl"><span class="fl-lbl">Punto de Muestreo</span><select id="fP${i}" style="min-width:200px" onchange="applyF(${i})"><option value="">Todos</option></select></div>
+    <div class="fl"><span class="fl-lbl">Analito</span><select id="fA${i}" onchange="applyF(${i})"><option value="">Todos</option></select></div>
+    <button class="btn-sm" onclick="resetF(${i})">↺ Limpiar</button>
+    <label class="up-lbl">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Actualizar CSV
+      <input type="file" accept=".csv" onchange="handleUp(event,${i})">
+    </label>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi" style="--kc:${col}"><div class="kpi-lbl">Total Análisis</div><div class="kpi-val" id="kT${i}">—</div><div class="kpi-sub">registros</div></div>
+    <div class="kpi" style="--kc:var(--green)"><div class="kpi-lbl">Dentro de Límite</div><div class="kpi-val" id="kD${i}">—</div><div class="kpi-sub">muestras conformes</div></div>
+    <div class="kpi" style="--kc:var(--red)"><div class="kpi-lbl">Fuera de Límite</div><div class="kpi-val" id="kF${i}">—</div><div class="kpi-sub">desviaciones</div></div>
+    <div class="kpi" style="--kc:var(--amber)"><div class="kpi-lbl">IEH</div><div class="kpi-val" id="kI${i}">—</div><div class="kpi-sub">Índice Eficacia Higiene</div></div>
+    <div class="kpi" style="--kc:var(--purple)"><div class="kpi-lbl">Puntos</div><div class="kpi-val" id="kPt${i}">—</div><div class="kpi-sub">puntos activos</div></div>
+    <div class="comp-card" style="grid-column:span 2">
+      <div class="rw"><canvas id="ring${i}"></canvas><div class="rc"><div class="rc-pct" id="cpct${i}">—</div><div class="rc-lbl">Cumpl.</div></div></div>
+      <div class="ci">
+        <div class="ci-title">% Cumplimiento General</div>
+        <div class="ci-stats">
+          <div><div class="csv" style="color:var(--green)" id="csd${i}">—</div><div class="csl">Dentro</div></div>
+          <div><div class="csv" style="color:var(--red)" id="csf${i}">—</div><div class="csl">Fuera</div></div>
+          <div><div class="csv" style="color:${col}" id="cst${i}">—</div><div class="csl">Total</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="crit crit-al" id="crit${i}">
+    <div class="crit-ic">⚠️</div>
+    <div>
+      <div class="crit-lbl">Punto de Muestreo Crítico</div>
+      <div class="crit-nm" id="critN${i}">Calculando…</div>
+      <div class="crit-det" id="critD${i}">—</div>
+    </div>
+  </div>
+  <div class="row1">
+    <div class="cc">
+      <div class="cc-hd">
+        <div><div class="cc-title"><span class="dot" style="background:var(--red)"></span>Desviaciones Fuera de Límite en el Tiempo</div>
+        <div class="cc-sub">Solo registros "Fuera de límite" · por fecha y analito</div></div>
+        <span class="tag tag-r">DESVIACIONES</span>
+      </div>
+      <div class="cw" style="height:200px"><canvas id="dc${i}"></canvas></div>
+    </div>
+  </div>
+  <div class="row2">
+    <div class="cc">
+      <div class="cc-hd">
+        <div><div class="cc-title"><span class="dot" style="background:var(--amber)"></span>Pareto · Top 5 Puntos con Fallas</div>
+        <div class="cc-sub">Frecuencia + % acumulado · priorización de acciones</div></div>
+        <span class="tag tag-a">PARETO</span>
+      </div>
+      <div class="cw" style="height:200px"><canvas id="pc${i}"></canvas></div>
+    </div>
+    <div class="cc">
+      <div class="cc-hd">
+        <div><div class="cc-title"><span class="dot" style="background:var(--purple)"></span>Evolución Anual de Fallas</div>
+        <div class="cc-sub">Fuera de límite por mes y año · por analito</div></div>
+        <span class="tag tag-p">TENDENCIA</span>
+      </div>
+      <div class="cw" style="height:200px"><canvas id="ec${i}"></canvas></div>
+    </div>
+  </div>
+  <div class="bot">
+    <div class="tbl-card">
+      <div class="tbl-title"><span class="dot" style="background:var(--red)"></span>Tabla Dinámica · Fallas por Punto</div>
+      <table><thead><tr><th>#</th><th>Punto de Muestreo</th><th>Fallas</th><th>Analito(s)</th><th>Estado</th></tr></thead>
+      <tbody id="ft${i}"><tr><td colspan="5" style="text-align:center;color:var(--dim);padding:16px">Cargando…</td></tr></tbody></table>
+    </div>
+    <div class="tbl-card">
+      <div class="tbl-title"><span class="dot" style="background:var(--amber)"></span>IEH por Punto de Muestreo</div>
+      <table><thead><tr><th>Punto</th><th>Total</th><th>Fallas</th><th>IEH %</th></tr></thead>
+      <tbody id="it${i}"><tr><td colspan="4" style="text-align:center;color:var(--dim);padding:16px">Cargando…</td></tr></tbody></table>
+    </div>
+  </div>`;
+}
+
+// ═══ FILTERS ══════════════════════════════════════════
+function populateFilters(i,k){
+  const d=EMBEDDED[k];
+  const yrs=[...new Set(d.map(r=>r.y).filter(Boolean))].sort();
+  const mos=[...new Set(d.map(r=>r.m).filter(Boolean))].sort((a,b)=>MO.indexOf(a)-MO.indexOf(b));
+  const pts=[...new Set(d.map(r=>r.p).filter(Boolean))].sort();
+  const ans=[...new Set(d.map(r=>r.a).filter(Boolean))].sort();
+  setOpts('fY'+i,yrs); setOpts('fM'+i,mos); setOpts('fP'+i,pts); setOpts('fA'+i,ans);
+}
+function setOpts(id,vals){
+  const s=document.getElementById(id); if(!s) return;
+  const c=s.value; while(s.options.length>1)s.remove(1);
+  vals.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;s.appendChild(o);});
+  if(vals.includes(c))s.value=c;
+}
+function getFilt(i,k){
+  const yr=document.getElementById('fY'+i)?.value;
+  const mo=document.getElementById('fM'+i)?.value;
+  const pt=document.getElementById('fP'+i)?.value;
+  const an=document.getElementById('fA'+i)?.value;
+  return EMBEDDED[k].filter(d=>(!yr||String(d.y)===yr)&&(!mo||d.m===mo)&&(!pt||d.p===pt)&&(!an||d.a===an));
+}
+function applyF(i){renderTab(i,TABN[i]);}
+function resetF(i){['fY','fM','fP','fA'].forEach(p=>{const e=document.getElementById(p+i);if(e)e.value='';});renderTab(i,TABN[i]);}
+
+// ═══ RENDER TAB ═══════════════════════════════════════
+function renderTab(i,k){
+  const d=getFilt(i,k);
+  if(!d||d.length===0) return;
+  const total=d.length, fuera=d.filter(r=>r.fl).length, dentro=total-fuera;
+  const ieh=total>0?((dentro/total)*100).toFixed(1)+'%':'—';
+  const pct=total>0?((dentro/total)*100).toFixed(1):0;
+  const pts=new Set(d.map(r=>r.p)).size;
+  st('kT'+i,total); st('kD'+i,dentro); st('kF'+i,fuera);
+  st('kI'+i,ieh); st('kPt'+i,pts);
+  st('csd'+i,dentro); st('csf'+i,fuera); st('cst'+i,total); st('cpct'+i,pct+'%');
+  // Ring
+  const ctx=document.getElementById('ring'+i)?.getContext('2d');
+  if(ctx){if(RI[i])RI[i].destroy();
+    RI[i]=new Chart(ctx,{type:'doughnut',data:{datasets:[{data:[dentro,fuera],backgroundColor:['#00e676','#ff3d57'],borderWidth:0,hoverOffset:3}]},options:{cutout:'74%',plugins:{legend:{display:false},tooltip:{enabled:false}},animation:{duration:600}}});}
+  // Critical
+  updCrit(i,d);
+  // Charts
+  renderDesv(i,d); renderPareto(i,d); renderEvo(i,d);
+  renderFT(i,d); renderIT(i,d);
+}
+
+function updCrit(i,d){
+  const fl=d.filter(r=>r.fl), el=document.getElementById('crit'+i);
+  if(!el)return;
+  if(!fl.length){
+    el.className='crit crit-ok'; el.querySelector('.crit-ic').textContent='✅';
+    st('critN'+i,'✓ Sin desviaciones en el período'); st('critD'+i,'Todos los puntos dentro de límite'); return;
+  }
+  el.className='crit crit-al'; el.querySelector('.crit-ic').textContent='⚠️';
+  const cnts={};
+  fl.forEach(r=>{cnts[r.p]=(cnts[r.p]||0)+1;});
+  const [[tp,tc]]=Object.entries(cnts).sort((a,b)=>b[1]-a[1]);
+  const ans=[...new Set(fl.filter(r=>r.p===tp).map(r=>r.a))];
+  st('critN'+i,tp); st('critD'+i,`${tc} desviación(es) · ${ans.join(' · ')}`);
+}
+
+// ─── Desviaciones ──────────────────────────────────
+function renderDesv(i,d){
+  const ctx=document.getElementById('dc'+i)?.getContext('2d');
+  if(!ctx)return; if(CU['dc'+i])CU['dc'+i].destroy();
+  const f=d.filter(r=>r.fl&&r.f);
+  if(!f.length){CU['dc'+i]=emptyC(ctx,'✓ Sin desviaciones en el período');return;}
+  const fechas=[...new Set(f.map(r=>r.f))].sort(sortF);
+  const analitos=[...new Set(f.map(r=>r.a))];
+  const cols=['#ff3d57','#ffb300','#c77dff','#00e5ff','#00e676','#4db6ff'];
+  CU['dc'+i]=new Chart(ctx,{type:'line',
+    data:{labels:fechas.map(fmtF),
+      datasets:analitos.map((an,idx)=>({label:trunc(an,38),
+        data:fechas.map(fe=>f.filter(r=>r.f===fe&&r.a===an).length),
+        borderColor:cols[idx%cols.length],backgroundColor:cols[idx%cols.length]+'22',
+        fill:true,tension:.4,pointRadius:5,pointHoverRadius:7,borderWidth:2}))},
+    options:cOpts({yTitle:'N° Fuera de Límite'})});
+}
+
+// ─── Pareto ────────────────────────────────────────
+function renderPareto(i,d){
+  const ctx=document.getElementById('pc'+i)?.getContext('2d');
+  if(!ctx)return; if(CU['pc'+i])CU['pc'+i].destroy();
+  const f=d.filter(r=>r.fl);
+  const cnts={};
+  f.forEach(r=>{cnts[r.p]=(cnts[r.p]||0)+1;});
+  const sorted=Object.entries(cnts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  if(!sorted.length){CU['pc'+i]=emptyC(ctx,'✓ Sin fallas para mostrar');return;}
+  const total=sorted.reduce((s,[,v])=>s+v,0);
+  let acc=0;
+  const cum=sorted.map(([,v])=>{acc+=v;return+((acc/total)*100).toFixed(1);});
+  const bColors=['#ff3d57','#ff6b35','#ffb300','#c77dff','#4db6ff'];
+  CU['pc'+i]=new Chart(ctx,{
+    data:{labels:sorted.map(([k])=>trunc(k,16)),
+      datasets:[
+        {type:'bar',label:'Fallas',data:sorted.map(([,v])=>v),backgroundColor:bColors,borderRadius:4,yAxisID:'y'},
+        {type:'line',label:'% Acumulado',data:cum,borderColor:'#00e676',backgroundColor:'transparent',pointRadius:4,borderWidth:2,tension:.3,yAxisID:'y2'}
+      ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#cdd9e8',font:{size:10},boxWidth:10},position:'top'},
+        tooltip:{backgroundColor:'#112240',borderColor:'#1c3250',borderWidth:1,titleColor:'#cdd9e8',bodyColor:'#4e6a88'}},
+      scales:{
+        x:{ticks:{color:'#4e6a88',font:{size:9}},grid:{color:'#1c325033'}},
+        y:{ticks:{color:'#4e6a88',font:{size:10},stepSize:1},grid:{color:'#1c3250'},beginAtZero:true,title:{display:true,text:'Fallas',color:'#4e6a88',font:{size:10}}},
+        y2:{position:'right',min:0,max:100,ticks:{color:'#00e676',font:{size:10},callback:v=>v+'%'},grid:{drawOnChartArea:false}}
+      }}});
+}
+
+// ─── Evolution ─────────────────────────────────────
+function renderEvo(i,d){
+  const ctx=document.getElementById('ec'+i)?.getContext('2d');
+  if(!ctx)return; if(CU['ec'+i])CU['ec'+i].destroy();
+  const periods=[...new Set(d.map(r=>`${r.y}-${String(MO.indexOf(r.m)<0?99:MO.indexOf(r.m)).padStart(2,'0')}`))].filter(p=>!p.includes('-99')).sort();
+  const labels=periods.map(p=>{const[y,mi]=p.split('-');return(parseInt(mi)<12?MS[parseInt(mi)]:'?')+' '+y;});
+  const analitos=[...new Set(d.map(r=>r.a))];
+  const cols=['#c77dff','#ff3d57','#ffb300','#00e5ff','#00e676','#4db6ff'];
+  const ds=analitos.map((an,idx)=>({label:trunc(an,35),
+    data:periods.map(p=>{const[y,mi]=p.split('-');return d.filter(r=>String(r.y)===y&&MO.indexOf(r.m)===parseInt(mi)&&r.a===an&&r.fl).length;}),
+    borderColor:cols[idx%cols.length],backgroundColor:'transparent',fill:false,tension:.4,pointRadius:4,borderWidth:2}));
+  if(ds.every(ds=>ds.data.every(v=>v===0))){CU['ec'+i]=emptyC(ctx,'✓ Sin fallas en el período');return;}
+  CU['ec'+i]=new Chart(ctx,{type:'line',data:{labels,datasets:ds},options:cOpts({yTitle:'Fallas / Mes',xRotate:45})});
+}
+
+// ─── Fail Table ────────────────────────────────────
+function renderFT(i,d){
+  const tb=document.getElementById('ft'+i); if(!tb)return;
+  tb.innerHTML='';
+  const fl=d.filter(r=>r.fl);
+  const cnts={},aByP={};
+  fl.forEach(r=>{cnts[r.p]=(cnts[r.p]||0)+1;if(!aByP[r.p])aByP[r.p]=new Set();aByP[r.p].add(r.a);});
+  const sorted=Object.entries(cnts).sort((a,b)=>b[1]-a[1]);
+  const max=sorted.length?sorted[0][1]:1;
+  if(!sorted.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--dim);padding:20px">✓ Sin fallas en el período</td></tr>';return;}
+  sorted.forEach(([p,cnt],idx)=>{
+    const al=[...(aByP[p]||[])].join(', ');
+    const cls=cnt>=3?'bdg-r':cnt>=1?'bdg-a':'bdg-g';
+    const lbl=cnt>=3?'⚠ Crítico':cnt>=1?'● Atención':'✓ OK';
+    const pct=Math.round((cnt/max)*100);
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><span class="rk">${idx+1}</span></td>
+      <td style="font-size:11px;max-width:170px">${p}</td>
+      <td><span style="font-family:var(--display);font-size:17px;font-weight:700;color:var(--red)">${cnt}</span>
+        <div class="barm" style="width:${pct}%"></div></td>
+      <td style="font-size:10px;color:var(--dim2);max-width:150px">${trunc(al,55)}</td>
+      <td><span class="bdg ${cls}">${lbl}</span></td>`;
+    tb.appendChild(tr);
+  });
+}
+
+// ─── IEH Table ─────────────────────────────────────
+function renderIT(i,d){
+  const tb=document.getElementById('it'+i); if(!tb)return;
+  tb.innerHTML='';
+  const pts=[...new Set(d.map(r=>r.p))].sort();
+  if(!pts.length){tb.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--dim);padding:20px">Sin datos</td></tr>';return;}
+  pts.forEach(p=>{
+    const pd=d.filter(r=>r.p===p),tot=pd.length,fal=pd.filter(r=>r.fl).length;
+    const ieh=tot>0?(((tot-fal)/tot)*100).toFixed(1):'—';
+    const n=parseFloat(ieh);
+    const col=n>=98?'var(--green)':n>=80?'var(--amber)':'var(--red)';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="font-size:11px">${p}</td>
+      <td style="font-family:var(--display);font-size:14px;font-weight:600">${tot}</td>
+      <td style="font-family:var(--display);font-size:14px;font-weight:600;color:${fal>0?'var(--red)':'var(--green)'}">${fal}</td>
+      <td><span style="font-family:var(--display);font-size:15px;font-weight:700;color:${col}">${ieh}%</span>
+        <div class="ieh-bg"><div class="ieh-fl" style="width:${ieh}%;background:${col}"></div></div></td>`;
+    tb.appendChild(tr);
+  });
+}
+
+// ═══ CSV UPLOAD ═══════════════════════════════════════
+function handleUp(evt,tabIdx){
+  const f=evt.target.files[0]; if(!f)return;
+  const k=TABN[tabIdx];
+  const reader=new FileReader();
+  reader.onload=e=>{
+    // Parse uploaded CSV
+    const text=e.target.result.replace(/"([^"]*)"/g,(_,m)=>'"'+m.replace(/\n/g,' ').replace(/\r/g,'')+'"');
+    Papa.parse(text,{header:false,skipEmptyLines:true,complete(res){
+      const rows=res.data, parsed=[];
+      for(let j=1;j<rows.length;j++){
+        const r=rows[j]; if(!r||r.length<6) continue;
+        const punto=r[2].trim(), cumplim=r[5].trim();
+        if(!punto||!cumplim) continue;
+        const anio_s=r[7]||''; const fecha=r[0].trim(), mes=r[1].trim().toLowerCase();
+        const analito=(r[8]&&r[8].trim()?r[8]:r[3]).trim().replace(/\s+/g,' ');
+        const parts=fecha.split('/'), anio=anio_s.trim().match(/^\d+$/)?parseInt(anio_s):(parts[2]?parseInt(parts[2]):2025);
+        parsed.push({f:fecha,m:mes,p:punto,a:analito,c:cumplim,y:anio,fl:/fuera/i.test(cumplim)?1:0});
+      }
+      EMBEDDED[k]=parsed;
+      populateFilters(tabIdx,k); renderTab(tabIdx,k); renderResumen();
+      const fct=parsed.filter(r=>r.fl).length;
+      const b=document.getElementById('b'+tabIdx);
+      if(b){b.textContent=fct;b.className='tbdg'+(fct>0?' on':'');}
+      showToast(`✓ ${NAMES[k]}: ${parsed.length} registros cargados`,false);
+      updateClock();
+    }});
+  };
+  reader.readAsText(f,'UTF-8');
+  evt.target.value='';
+}
+
+// ═══ HELPERS ══════════════════════════════════════════
+function st(id,val){const e=document.getElementById(id);if(e)e.textContent=val;}
+function trunc(s,n){return s&&s.length>n?s.substring(0,n-1)+'…':(s||'');}
+function sortF(a,b){const p=s=>{const x=s.split('/');return x.length===3?new Date(+x[2],+x[1]-1,+x[0]):new Date(0);};return p(a)-p(b);}
+function fmtF(f){const p=f.split('/');return p.length===3?`${p[0]}/${p[1]}/${p[2].slice(-2)}`:f;}
+function emptyC(ctx,msg){return new Chart(ctx,{type:'line',data:{labels:[msg],datasets:[{data:[0],borderColor:'#c8d6e8',backgroundColor:'transparent'}]},options:{plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{x:{ticks:{color:'#6b82a0',font:{size:11}},grid:{color:'#c8d6e822'}},y:{ticks:{color:'#6b82a0'},grid:{color:'#c8d6e8'},beginAtZero:true}}}});}
+function cOpts({yTitle='',xRotate=0}={}){return{responsive:true,maintainAspectRatio:false,
+  plugins:{legend:{labels:{color:'#1a2b3c',font:{size:10},boxWidth:10},position:'top'},
+    tooltip:{backgroundColor:'#1a2b3c',borderColor:'#c8d6e8',borderWidth:1,titleColor:'#fff',bodyColor:'#6b82a0',mode:'index',intersect:false}},
+  scales:{x:{ticks:{color:'#6b82a0',font:{size:9},maxRotation:xRotate},grid:{color:'#c8d6e844'}},
+    y:{ticks:{color:'#6b82a0',font:{size:10},stepSize:1},grid:{color:'#c8d6e8'},beginAtZero:true,title:{display:!!yTitle,text:yTitle,color:'#6b82a0',font:{size:10}}}}};}
+function showToast(msg,isErr=false){const t=document.getElementById('toast'),dot=document.getElementById('tdot2');document.getElementById('tmsg').textContent=msg;dot.className='tdot2'+(isErr?' r':'');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
+
+// ═══ PDF EXPORT ═══════════════════════════════════════
+function openPdfModal(){
+  document.getElementById('pdfOverlay').classList.add('show');
+  document.getElementById('pdfProgress').classList.remove('show');
+  const btn=document.getElementById('pdfGoBtn');
+  btn.disabled=false;
+  btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>&nbsp;Descargar PDF';
+}
+function closePdfModal(){
+  document.getElementById('pdfOverlay').classList.remove('show');
+}
+function selectPdfOpt(el){
+  document.querySelectorAll('.pdf-option').forEach(o=>o.classList.remove('selected'));
+  el.closest('.pdf-option').classList.add('selected');
+}
+
+// Show a tab by force (even if not active) for capture
+function forceShowTab(idx){
+  // Hide all, show only this one — but keep display:block
+  for(let i=0;i<4;i++){
+    const p=document.getElementById('tab'+i);
+    if(p) p.style.display = (i===idx)?'block':'none';
+  }
+}
+function restoreTabDisplay(){
+  for(let i=0;i<4;i++){
+    const p=document.getElementById('tab'+i);
+    if(p) p.style.display = (i===AT)?'block':'none';
+  }
+}
+
+async function captureTab(idx){
+  forceShowTab(idx);
+  await new Promise(r=>setTimeout(r,350)); // wait for charts to paint
+  const el=document.getElementById('tab'+idx);
+  const canvas=await html2canvas(el,{
+    scale:1.5,
+    useCORS:true,
+    backgroundColor:'#eef2f7',
+    logging:false,
+    allowTaint:true,
+    scrollY:0,
+    x:0, y:0,
+    width:el.scrollWidth,
+    height:el.scrollHeight,
+  });
+  return canvas;
+}
+
+async function runExportPdf(){
+  if(typeof html2canvas==='undefined'||typeof window.jspdf==='undefined'){
+    alert('Las librerías de PDF aún se están cargando. Esperá unos segundos e intentá de nuevo.');
+    return;
+  }
+  const scope=document.querySelector('input[name=pdfScope]:checked').value;
+  const goBtn=document.getElementById('pdfGoBtn');
+  const prog=document.getElementById('pdfProgress');
+  const bar=document.getElementById('pdfProgBar');
+  const txt=document.getElementById('pdfProgText');
+
+  goBtn.disabled=true;
+  goBtn.textContent='Generando…';
+  prog.classList.add('show');
+  bar.style.width='0%';
+
+  const tabsToExport = scope==='all'?[0,1,2,3]:[AT];
+  const tabNames=['Resumen General','Placa Ambiental','Monitoreo de Manos','Monitoreo de Gases'];
+
+  // Hide overlays/topbar/tabs-nav so they don't show up in capture
+  const topbar=document.querySelector('.topbar');
+  const tabsNav=document.querySelector('.tabs-nav');
+  const overlay=document.getElementById('pdfOverlay');
+  const toast=document.getElementById('toast');
+  const uprog=document.getElementById('uprog');
+  [topbar,tabsNav,overlay,toast,uprog].forEach(e=>{if(e)e.style.display='none';});
+
+  try{
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+    const W=297, H=210;
+
+    for(let ti=0;ti<tabsToExport.length;ti++){
+      const tabIdx=tabsToExport[ti];
+      const progress=Math.round(((ti+0.1)/tabsToExport.length)*100);
+      bar.style.width=progress+'%';
+      txt.textContent=`Capturando: ${tabNames[tabIdx]} (${ti+1}/${tabsToExport.length})…`;
+
+      let imgData;
+      try{
+        const canvas=await captureTab(tabIdx);
+        imgData=canvas.toDataURL('image/jpeg',0.93);
+      }catch(capErr){
+        console.error('Capture error tab '+tabIdx, capErr);
+        txt.textContent=`⚠ Error capturando ${tabNames[tabIdx]}, saltando…`;
+        await new Promise(r=>setTimeout(r,800));
+        continue;
+      }
+
+      if(ti>0) pdf.addPage();
+
+      // Header
+      pdf.setFillColor(0,119,182);
+      pdf.rect(0,0,W,13,'F');
+      pdf.setFont('helvetica','bold');
+      pdf.setFontSize(8);
+      pdf.setTextColor(255,255,255);
+      pdf.text('SGCIA  ·  R-SIG-MA 02',5,8.5);
+      pdf.setFontSize(9);
+      pdf.text('MONITOREO AMBIENTAL - PLANTA ALÉRGENOS 2025-2026',W/2,8.5,{align:'center'});
+      pdf.setFontSize(7);
+      pdf.text(new Date().toLocaleDateString('es-AR'),W-5,8.5,{align:'right'});
+
+      // Section label
+      pdf.setFillColor(232,244,253);
+      pdf.rect(0,13,W,6,'F');
+      pdf.setFont('helvetica','bold');
+      pdf.setFontSize(7);
+      pdf.setTextColor(0,95,150);
+      pdf.text(('  '+tabNames[tabIdx]).toUpperCase(),5,17.5);
+
+      // Content image
+      const contentY=19, contentH=H-contentY-5;
+      pdf.addImage(imgData,'JPEG',5,contentY,W-10,contentH);
+
+      // Footer line
+      pdf.setDrawColor(200,214,232);
+      pdf.setLineWidth(0.3);
+      pdf.line(5,H-5,W-5,H-5);
+      pdf.setFont('helvetica','normal');
+      pdf.setFontSize(6);
+      pdf.setTextColor(107,130,160);
+      pdf.text(`Página ${ti+1} de ${tabsToExport.length}  ·  Exportado ${new Date().toLocaleDateString('es-AR')} ${new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}`,W/2,H-2,{align:'center'});
+
+      bar.style.width=Math.round(((ti+1)/tabsToExport.length)*100)+'%';
+    }
+
+    txt.textContent='✓ ¡Listo! Descargando…';
+    bar.style.width='100%';
+    await new Promise(r=>setTimeout(r,400));
+
+    const fname=scope==='all'?'Monitoreo_Ambiental_Planta_Alergenos_Completo.pdf':'Monitoreo_Ambiental_'+tabNames[AT].replace(/\s/g,'_')+'.pdf';
+    pdf.save(fname);
+    closePdfModal();
+    showToast('✓ PDF exportado correctamente',false);
+
+  }catch(err){
+    console.error('PDF error:',err);
+    txt.textContent='❌ Error: '+err.message;
+    goBtn.disabled=false;
+    goBtn.textContent='Reintentar';
+  }finally{
+    // Always restore UI
+    [topbar,tabsNav,toast,uprog].forEach(e=>{if(e)e.style.display='';});
+    restoreTabDisplay();
+  }
+}
+</script>
+</body>
+</html>
